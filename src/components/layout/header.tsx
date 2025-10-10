@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuthStore } from '@/store/auth-store'
 import { toast } from 'sonner'
 import { removeLocalStorage } from '@/utils/remove-session-storage'
+import { useLogoutAdmin } from '@/app/data/mutations/auth'
 
 type WithNavigationProps = {
   isNavigationVisible: true
@@ -54,10 +55,16 @@ export const Header = ({
   const navigations = isNavigationVisible
     ? (rest as WithNavigationProps).navigations
     : []
-  const { user } = useAuthStore()
+  const { user, isAuthenticated } = useAuthStore()
+  const { mutateAsync: logoutAdmin } = useLogoutAdmin()
 
   const { isMobile } = useSidebar()
-  const isSingIn = isLoggedIn ?? isSingedin()
+  const isSingIn = isAuthenticated
+
+  const handleLogout = async () => {
+    await logoutAdmin()
+    window.location.href = '/admin/login'
+  }
 
   return (
     <header
@@ -163,7 +170,9 @@ export const Header = ({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>Profile</DropdownMenuItem>
                   <DropdownMenuItem>Settings</DropdownMenuItem>
-                  <DropdownMenuItem>Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout}>
+                    Logout
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

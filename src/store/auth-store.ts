@@ -127,7 +127,7 @@ export const useAuthStore = create<AgentAuthState>()(
       },
     }),
     {
-      name: 'agent-auth-storage',
+      name: 'auth-storage',
       storage: createJSONStorage(() => localStorage),
       // Only persist authentication data, not temporary states
       partialize: (state) => ({
