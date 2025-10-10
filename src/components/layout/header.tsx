@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { useAgentAuthStore } from '@/store/agent-auth-store'
+import { useAuthStore } from '@/store/auth-store'
 import { toast } from 'sonner'
 import { removeLocalStorage } from '@/utils/remove-session-storage'
 
@@ -54,7 +54,7 @@ export const Header = ({
   const navigations = isNavigationVisible
     ? (rest as WithNavigationProps).navigations
     : []
-  const { user } = useAgentAuthStore()
+  const { user } = useAuthStore()
 
   const { isMobile } = useSidebar()
   const isSingIn = isLoggedIn ?? isSingedin()
