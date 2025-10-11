@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -11,10 +11,38 @@ import { ColumnDef } from '@tanstack/react-table'
 import { useGetAgents } from '@/app/data/queries/agents'
 import { Agent } from '@/types/agents'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { useDeleteAgent } from '@/app/data/mutations/agents'
+import { useAuthStore } from '@/store/auth-store'
+import { toast } from 'sonner'
 
 export default function AgentsPage() {
   const [page, setPage] = useState<number>(1)
-  const { data: agentsData, isFetching, isLoading } = useGetAgents(page)
+  const {
+    data: agentsData,
+    isFetching,
+    isLoading,
+    refetch,
+  } = useGetAgents(page)
+  const deleteMutation = useDeleteAgent()
+  const [isDeleting, setIsDeleting] = useState(false)
+  const { isAuthenticated } = useAuthStore()
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      window.location.href = '/admin/login'
+    }
+  }, [isAuthenticated])
 
   const columns = React.useMemo<ColumnDef<Agent, any>[]>(
     () => [
@@ -104,10 +132,61 @@ export default function AgentsPage() {
     {
       label: 'Delete',
       icon: <Trash className="h-4 w-4" />,
-      onClick: () => {},
+      onClick: (agent) => handleDeleteClick(agent),
       variant: 'destructive',
     },
   ]
+
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+
+  function handleDeleteClick(agent: Agent) {
+    setSelectedAgent(agent)
+    setIsDeleteOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    // Determine the current active page from the agents response links (if present)
+    const links = agentsData?.data?.links
+    let targetPage = page
+
+    if (links && Array.isArray(links)) {
+      const activeLink = links.find((l: any) => l.active)
+      if (activeLink) {
+        // try parse from url
+        if (activeLink.url) {
+          try {
+            const u = new URL(activeLink.url)
+            const p = u.searchParams.get('page')
+            if (p) targetPage = Number(p)
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // fallback: try parse label (clean numbers)
+        if (!targetPage && activeLink.label) {
+          const cleaned = activeLink.label.replace(/[^0-9]/g, '')
+          if (cleaned) targetPage = Number(cleaned)
+        }
+      }
+    }
+
+    try {
+      setIsDeleting(true)
+      const response = await deleteMutation.mutateAsync(selectedAgent!.id)
+      toast.success(response?.message ?? 'Agent deleted')
+      // Ensure we fetch the same page the server considers current
+      setPage(targetPage)
+      await refetch()
+    } catch (error) {
+      toast.error('Failed to delete agent. Please try again.')
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteOpen(false)
+      setSelectedAgent(null)
+    }
+  }
 
   return (
     <div className="container mx-auto space-y-6 py-6">
@@ -160,6 +239,37 @@ export default function AgentsPage() {
                   actions={actions}
                   enablePagination={false}
                 />
+
+                {/* Delete confirmation dialog */}
+                <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete agent</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Are you sure you want to delete{' '}
+                        <strong>
+                          {selectedAgent
+                            ? `${selectedAgent.first_name} ${selectedAgent.last_name}`
+                            : 'this agent'}
+                        </strong>
+                        ? This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setIsDeleteOpen(false)}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction asChild>
+                        <Button
+                          variant="destructive"
+                          onClick={async () => await handleConfirmDelete()}
+                        >
+                          Delete
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
 
                 {/* Server-driven pagination links */}
                 <div className="mt-4 flex items-center justify-end gap-2">
