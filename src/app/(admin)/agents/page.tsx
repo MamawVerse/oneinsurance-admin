@@ -8,61 +8,13 @@ import { Button } from '@/components/ui/button'
 import { MoreHorizontal, Trash, Edit2, Check } from 'lucide-react'
 import { DataTable, DataTableAction } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
-
-type Agent = {
-  id: number
-  company_id: number | null
-  role: number
-  username: string | null
-  first_name: string
-  middle_name: string | null
-  last_name: string
-  designation: string | null
-  avatar: string | null
-  email: string
-  status: string
-  phone: string | null
-  created_at: string
-  updated_at: string
-}
-
-const mockAgents: Agent[] = [
-  {
-    id: 8,
-    company_id: null,
-    role: 20,
-    username: null,
-    first_name: 'John',
-    middle_name: null,
-    last_name: 'Doe',
-    designation: 'Agent',
-    avatar: null,
-    email: 'johndoe2@ifrc.com',
-    status: 'pending',
-    phone: '09123456999',
-    created_at: '2025-10-06T07:30:07.000000Z',
-    updated_at: '2025-10-06T07:30:07.000000Z',
-  },
-  {
-    id: 9,
-    company_id: null,
-    role: 20,
-    username: null,
-    first_name: 'Jane',
-    middle_name: null,
-    last_name: 'Smith',
-    designation: 'Senior Agent',
-    avatar: null,
-    email: 'janesmith@ifrc.com',
-    status: 'active',
-    phone: '09170001111',
-    created_at: '2025-08-01T10:00:00.000000Z',
-    updated_at: '2025-09-01T10:00:00.000000Z',
-  },
-]
+import { useGetAgents } from '@/app/data/queries/agents'
+import { Agent } from '@/types/agents'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function AgentsPage() {
-  const [agents] = useState<Agent[]>(mockAgents)
+  const [page, setPage] = useState<number>(1)
+  const { data: agentsData, isFetching, isLoading } = useGetAgents(page)
 
   const columns = React.useMemo<ColumnDef<Agent, any>[]>(
     () => [
@@ -111,6 +63,10 @@ export default function AgentsPage() {
       {
         accessorKey: 'designation',
         header: 'Designation',
+      },
+      {
+        accessorKey: 'address',
+        header: 'Address',
       },
       {
         accessorKey: 'status',
@@ -175,13 +131,82 @@ export default function AgentsPage() {
         </CardHeader>
         <CardContent>
           <div>
-            <DataTable
-              columns={columns}
-              data={agents}
-              searchKey="email"
-              actions={actions}
-              pageSize={5}
-            />
+            {isFetching || isLoading ? (
+              <div className="w-full space-y-2">
+                {[...Array(5)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-background flex items-center gap-4 rounded-md border p-3"
+                  >
+                    <div className="h-10 w-10">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                    </div>
+                    <div className="flex-1">
+                      <Skeleton className="mb-2 h-4 w-1/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <div className="w-24">
+                      <Skeleton className="h-6 w-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <DataTable
+                  columns={columns}
+                  data={agentsData?.data.data ?? []}
+                  searchKey="email"
+                  actions={actions}
+                  enablePagination={false}
+                />
+
+                {/* Server-driven pagination links */}
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  {agentsData?.data.links?.map(
+                    (
+                      linkObj: {
+                        url: string | null
+                        label: string
+                        active: boolean
+                      },
+                      idx: number
+                    ) => {
+                      const { url, label: rawLabel, active } = linkObj
+                      const cleanedLabel = rawLabel.replace(
+                        /&laquo;|&raquo;|&nbsp;/g,
+                        (m) =>
+                          m === '&laquo;' ? '«' : m === '&raquo;' ? '»' : ' '
+                      )
+                      const disabled = url === null
+
+                      let pageNum: number | null = null
+                      try {
+                        if (url) {
+                          const u = new URL(url)
+                          const p = u.searchParams.get('page')
+                          pageNum = p ? Number(p) : null
+                        }
+                      } catch (e) {
+                        pageNum = null
+                      }
+
+                      return (
+                        <Button
+                          key={idx}
+                          variant={active ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => pageNum && setPage(pageNum)}
+                          disabled={disabled}
+                        >
+                          {cleanedLabel}
+                        </Button>
+                      )
+                    }
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

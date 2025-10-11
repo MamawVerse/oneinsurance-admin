@@ -68,6 +68,7 @@ export interface DataTableProps<TData, TValue> {
   enableRowSelection?: boolean
   enableColumnVisibility?: boolean
   pageSize?: number
+  enablePagination?: boolean
 }
 
 export function DataTable<TData extends Record<string, any>, TValue>({
@@ -79,6 +80,7 @@ export function DataTable<TData extends Record<string, any>, TValue>({
   enableRowSelection = false,
   enableColumnVisibility = true,
   pageSize = 10,
+  enablePagination = true,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -305,74 +307,19 @@ export function DataTable<TData extends Record<string, any>, TValue>({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-2">
-        <div className="text-muted-foreground flex-1 text-sm">
-          {enableRowSelection && (
-            <>
-              {table.getFilteredSelectedRowModel().rows.length} of{' '}
-              {table.getFilteredRowModel().rows.length} row(s) selected.
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-6">
-          {/* Rows per page - hidden on small screens */}
-          <div className="hidden items-center gap-2 sm:flex">
-            <p className="text-sm font-medium">Rows per page</p>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(value) => {
-                table.setPageSize(Number(value))
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
-                />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[5, 10, 20, 30, 40, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {enablePagination && (
+        <div className="flex items-center justify-between px-2">
+          <div className="text-muted-foreground flex-1 text-sm">
+            {enableRowSelection && (
+              <>
+                {table.getFilteredSelectedRowModel().rows.length} of{' '}
+                {table.getFilteredRowModel().rows.length} row(s) selected.
+              </>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Compact pagination for small screens */}
-            <div className="flex items-center gap-2 sm:hidden">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-                aria-label="Previous page"
-                className="h-10 w-10 p-0"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-
-              <div className="text-muted-foreground px-2 text-sm">
-                Page {table.getState().pagination.pageIndex + 1} of{' '}
-                {table.getPageCount()}
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-                aria-label="Next page"
-                className="h-10 w-10 p-0"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-
-            {/* Full pagination controls for sm+ */}
-            <div className="hidden items-center gap-2 sm:flex">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -411,15 +358,14 @@ export function DataTable<TData extends Record<string, any>, TValue>({
                 Next
               </Button>
             </div>
-          </div>
 
-          {/* Page indicator - full text on sm+, compact on mobile is above */}
-          <div className="text-muted-foreground hidden text-sm sm:block">
-            Page {table.getState().pagination.pageIndex + 1} of{' '}
-            {table.getPageCount()}
+            <div className="text-muted-foreground text-sm">
+              Page {table.getState().pagination.pageIndex + 1} of{' '}
+              {table.getPageCount()}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }
