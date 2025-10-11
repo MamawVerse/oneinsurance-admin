@@ -17,6 +17,8 @@ import {
   ArrowUpDown,
   ArrowUpRight,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   MoreHorizontal,
   Search,
 } from 'lucide-react'
@@ -314,7 +316,8 @@ export function DataTable<TData extends Record<string, any>, TValue>({
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
+          {/* Rows per page - hidden on small screens */}
+          <div className="hidden items-center gap-2 sm:flex">
             <p className="text-sm font-medium">Rows per page</p>
             <Select
               value={`${table.getState().pagination.pageSize}`}
@@ -338,46 +341,80 @@ export function DataTable<TData extends Record<string, any>, TValue>({
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.previousPage()}
-              disabled={!table.getCanPreviousPage()}
-            >
-              Previous
-            </Button>
+            {/* Compact pagination for small screens */}
+            <div className="flex items-center gap-2 sm:hidden">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                aria-label="Previous page"
+                className="h-10 w-10 p-0"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
 
-            <div className="flex items-center gap-1">
-              {Array.from({ length: table.getPageCount() }, (_, i) => i).map(
-                (pageIndex) => (
-                  <Button
-                    key={pageIndex}
-                    variant={
-                      table.getState().pagination.pageIndex === pageIndex
-                        ? 'default'
-                        : 'outline'
-                    }
-                    size="sm"
-                    onClick={() => table.setPageIndex(pageIndex)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {pageIndex + 1}
-                  </Button>
-                )
-              )}
+              <div className="text-muted-foreground px-2 text-sm">
+                Page {table.getState().pagination.pageIndex + 1} of{' '}
+                {table.getPageCount()}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                aria-label="Next page"
+                className="h-10 w-10 p-0"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => table.nextPage()}
-              disabled={!table.getCanNextPage()}
-            >
-              Next
-            </Button>
+            {/* Full pagination controls for sm+ */}
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: table.getPageCount() }, (_, i) => i).map(
+                  (pageIndex) => (
+                    <Button
+                      key={pageIndex}
+                      variant={
+                        table.getState().pagination.pageIndex === pageIndex
+                          ? 'default'
+                          : 'outline'
+                      }
+                      size="sm"
+                      onClick={() => table.setPageIndex(pageIndex)}
+                      className="h-8 w-8 p-0"
+                    >
+                      {pageIndex + 1}
+                    </Button>
+                  )
+                )}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Next
+              </Button>
+            </div>
           </div>
 
-          <div className="text-muted-foreground text-sm">
+          {/* Page indicator - full text on sm+, compact on mobile is above */}
+          <div className="text-muted-foreground hidden text-sm sm:block">
             Page {table.getState().pagination.pageIndex + 1} of{' '}
             {table.getPageCount()}
           </div>

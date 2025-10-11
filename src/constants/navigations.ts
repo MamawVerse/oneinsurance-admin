@@ -91,4 +91,5 @@ export const AGENT_NAVIGATIONS = [
 
 export const ADMIN_NAVIGATIONS = [
   { type: 'single', label: 'Inquiries', link: '/inquiries' },
+  { type: 'single', label: 'Agents', link: '/agents' },
 ] satisfies NavigationItem[]
