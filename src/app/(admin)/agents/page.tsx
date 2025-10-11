@@ -37,11 +37,18 @@ export default function AgentsPage() {
   const deleteMutation = useDeleteAgent()
   const [isDeleting, setIsDeleting] = useState(false)
   const { isAuthenticated } = useAuthStore()
+  const [authChecking, setAuthChecking] = useState(true)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      window.location.href = '/admin/login'
-    }
+    // Small delay to let zustand persist/hydrate and avoid redirect flicker
+    const t = setTimeout(() => {
+      setAuthChecking(false)
+      if (!isAuthenticated) {
+        window.location.href = '/admin/login'
+      }
+    }, 250)
+
+    return () => clearTimeout(t)
   }, [isAuthenticated])
 
   const columns = React.useMemo<ColumnDef<Agent, any>[]>(
@@ -210,7 +217,7 @@ export default function AgentsPage() {
         </CardHeader>
         <CardContent>
           <div>
-            {isFetching || isLoading ? (
+            {authChecking || isFetching || isLoading ? (
               <div className="w-full space-y-2">
                 {[...Array(5)].map((_, i) => (
                   <div
