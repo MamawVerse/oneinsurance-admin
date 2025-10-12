@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useGetAgents } from '@/app/data/queries/agents'
+import { useRouter } from 'next/navigation'
 import { Agent } from '@/types/agents'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ import {
   AlertDialogCancel,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { useActivateAgent, useDeleteAgent } from '@/app/data/mutations/agents'
 import { useUpdateAgent } from '@/app/data/mutations/agents'
 import { useAuthStore } from '@/store/auth-store'
@@ -132,6 +134,8 @@ export default function AgentsPage() {
     []
   )
 
+  // actions are now available inside the details dialog on row click
+
   const actions: DataTableAction<Agent>[] = [
     {
       label: 'Activate',
@@ -154,6 +158,8 @@ export default function AgentsPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [selectedToView, setSelectedToView] = useState<Agent | null>(null)
   const [isActivateOpen, setIsActivateOpen] = useState(false)
   const [selectedToActivate, setSelectedToActivate] = useState<Agent | null>(
     null
@@ -170,6 +176,11 @@ export default function AgentsPage() {
   const updateMutation = useUpdateAgent()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false)
+
+  function handleRowClick(agent: Agent) {
+    setSelectedToView(agent)
+    setIsDetailsOpen(true)
+  }
 
   function handleDeleteClick(agent: Agent) {
     setSelectedAgent(agent)
@@ -378,6 +389,7 @@ export default function AgentsPage() {
                   columns={columns}
                   data={agentsData?.data.data ?? []}
                   searchKey="email"
+                  onRowClick={(row) => handleRowClick(row)}
                   actions={actions}
                   enablePagination={false}
                 />
@@ -408,6 +420,17 @@ export default function AgentsPage() {
                   setUpdatePayload,
                   setIsSaveConfirmOpen,
                   isUpdating
+                )}
+
+                {/* Details dialog (opened when a row is clicked) */}
+                {DetailsDialog(
+                  isDetailsOpen,
+                  setIsDetailsOpen,
+                  selectedToView,
+                  // reuse handlers for actions inside the dialog
+                  handleActivateClick,
+                  handleUpdateClick,
+                  handleDeleteClick
                 )}
 
                 {/* Confirm save dialog for updates */}
@@ -479,7 +502,7 @@ function DeleteDialog(
 ) {
   return (
     <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-h-[80vh] w-[90vw] sm:w-[700px]">
         <AlertDialogHeader>
           <AlertDialogTitle>Delete agent</AlertDialogTitle>
           <AlertDialogDescription>
@@ -519,7 +542,7 @@ function ActivateDialog(
 ) {
   return (
     <AlertDialog open={isActivateOpen} onOpenChange={setIsActivateOpen}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-h-[90vh] w-[95vw] sm:w-[700px]">
         <AlertDialogHeader>
           <AlertDialogTitle>Activate agent</AlertDialogTitle>
           <AlertDialogDescription>
@@ -562,7 +585,7 @@ function UpdateDialog(
 ) {
   return (
     <AlertDialog open={isUpdateOpen} onOpenChange={setIsUpdateOpen}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-h-[90vh] w-[95vw] sm:w-[700px]">
         <AlertDialogHeader>
           <AlertDialogTitle>Update agent</AlertDialogTitle>
           <AlertDialogDescription>
@@ -575,44 +598,46 @@ function UpdateDialog(
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <div className="grid gap-2 py-2">
-          <div>
-            <Label>First name</Label>
-            <Input
-              value={updatePayload.first_name}
-              onChange={(e) =>
-                setUpdatePayload({
-                  ...updatePayload,
-                  first_name: e.target.value,
-                })
-              }
-              placeholder="First name"
-            />
+        <ScrollArea className="relative h-full max-h-[64vh] pb-4">
+          <div className="grid gap-2 py-2">
+            <div>
+              <Label>First name</Label>
+              <Input
+                value={updatePayload.first_name}
+                onChange={(e) =>
+                  setUpdatePayload({
+                    ...updatePayload,
+                    first_name: e.target.value,
+                  })
+                }
+                placeholder="First name"
+              />
+            </div>
+            <div>
+              <Label>Last name</Label>
+              <Input
+                value={updatePayload.last_name}
+                onChange={(e) =>
+                  setUpdatePayload({
+                    ...updatePayload,
+                    last_name: e.target.value,
+                  })
+                }
+                placeholder="Last name"
+              />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input
+                value={updatePayload.phone}
+                onChange={(e) =>
+                  setUpdatePayload({ ...updatePayload, phone: e.target.value })
+                }
+                placeholder="Phone"
+              />
+            </div>
           </div>
-          <div>
-            <Label>Last name</Label>
-            <Input
-              value={updatePayload.last_name}
-              onChange={(e) =>
-                setUpdatePayload({
-                  ...updatePayload,
-                  last_name: e.target.value,
-                })
-              }
-              placeholder="Last name"
-            />
-          </div>
-          <div>
-            <Label>Phone</Label>
-            <Input
-              value={updatePayload.phone}
-              onChange={(e) =>
-                setUpdatePayload({ ...updatePayload, phone: e.target.value })
-              }
-              placeholder="Phone"
-            />
-          </div>
-        </div>
+        </ScrollArea>
 
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setIsUpdateOpen(false)}>
@@ -666,6 +691,128 @@ function ConfirmUpdateDialog(
               {isUpdating ? 'Saving...' : 'Yes, save'}
             </Button>
           </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function DetailsDialog(
+  isDetailsOpen: boolean,
+  setIsDetailsOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  agent: Agent | null,
+  handleActivateClick: (agent: Agent) => void,
+  handleUpdateClick: (agent: Agent) => void,
+  handleDeleteClick: (agent: Agent) => void
+) {
+  if (!agent) return null
+
+  return (
+    <AlertDialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Agent details</AlertDialogTitle>
+          <AlertDialogDescription>
+            Details for{' '}
+            <strong>{`${agent.first_name} ${agent.last_name}`}</strong>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <ScrollArea className="relative h-full max-h-[70vh] pb-4">
+          <div className="grid gap-2 py-2">
+            <div className="flex items-center gap-4">
+              <Avatar>
+                {agent.avatar ? (
+                  <AvatarImage src={agent.avatar} alt={`${agent.first_name}`} />
+                ) : (
+                  <AvatarFallback>
+                    {agent.first_name?.charAt(0) ?? ''}
+                    {agent.last_name?.charAt(0) ?? ''}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <div>
+                <div className="font-medium">
+                  {agent.first_name}{' '}
+                  {agent.middle_name ? `${agent.middle_name} ` : ''}
+                  {agent.last_name}
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  Username: {agent.username ?? '-'}
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  Email: {agent.email}
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  Phone: {agent.phone ?? '-'}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Company ID</Label>
+                <div>{agent.company_id ?? '-'}</div>
+              </div>
+              <div>
+                <Label>Designation</Label>
+                <div>{agent.designation ?? '-'}</div>
+              </div>
+              <div className="col-span-2">
+                <Label>Job description</Label>
+                <div>{agent.job_description ?? '-'}</div>
+              </div>
+              <div>
+                <Label>Phone description</Label>
+                <div>{agent.phone_description ?? '-'}</div>
+              </div>
+              <div>
+                <Label>Telephone</Label>
+                <div>{agent.telephone ?? '-'}</div>
+              </div>
+              <div className="col-span-2">
+                <Label>Address</Label>
+                <div>{agent.address ?? '-'}</div>
+              </div>
+              <div>
+                <Label>Is super admin</Label>
+                <div>{agent.is_super_admin ? 'Yes' : 'No'}</div>
+              </div>
+              <div>
+                <Label>Birth date</Label>
+                <div>{agent.birth_date ?? '-'}</div>
+              </div>
+              <div>
+                <Label>Status</Label>
+                <div>{agent.status}</div>
+              </div>
+            </div>
+          </div>
+        </ScrollArea>
+
+        <AlertDialogFooter className="z-10">
+          <div className="flex w-full flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="default"
+                onClick={() => handleActivateClick(agent)}
+              >
+                {agent.status === 'active' ? 'Activated' : 'Activate'}
+              </Button>
+              <Button onClick={() => handleUpdateClick(agent)}>Update</Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDeleteClick(agent)}
+              >
+                Delete
+              </Button>
+            </div>
+            <div>
+              <AlertDialogCancel onClick={() => setIsDetailsOpen(false)}>
+                Close
+              </AlertDialogCancel>
+            </div>
+          </div>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
