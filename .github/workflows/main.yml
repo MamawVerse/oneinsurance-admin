@@ -23,6 +23,9 @@ jobs:
           cat <<EOF > .env
           NEXT_PUBLIC_TOKEN=${{ secrets.NEXT_PUBLIC_TOKEN }}
           BASE_URL=${{ secrets.BASE_URL }}
+          NEXT_PUBLIC_STORAGE_SECRET=${{ secrets.NEXT_PUBLIC_STORAGE_SECRET }}
+          GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}
+          NEXT_PUBLIC_BASE_URL=${{ secrets.NEXT_PUBLIC_BASE_URL }}
           EOF
 
       - name: Clean and install prod dependencies
