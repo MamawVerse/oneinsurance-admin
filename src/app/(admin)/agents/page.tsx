@@ -169,6 +169,7 @@ export default function AgentsPage() {
   })
   const updateMutation = useUpdateAgent()
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false)
 
   function handleDeleteClick(agent: Agent) {
     setSelectedAgent(agent)
@@ -186,6 +187,11 @@ export default function AgentsPage() {
   }
 
   function handleUpdateClick(agent: Agent) {
+    if (agent.status !== 'active') {
+      toast.error('Only active agents can be updated')
+      return
+    }
+
     setSelectedToUpdate(agent)
     setUpdatePayload({
       first_name: agent.first_name,
@@ -400,6 +406,15 @@ export default function AgentsPage() {
                   selectedToUpdate,
                   updatePayload,
                   setUpdatePayload,
+                  setIsSaveConfirmOpen,
+                  isUpdating
+                )}
+
+                {/* Confirm save dialog for updates */}
+                {ConfirmUpdateDialog(
+                  isSaveConfirmOpen,
+                  setIsSaveConfirmOpen,
+                  selectedToUpdate,
                   handleConfirmUpdate,
                   isUpdating
                 )}
@@ -542,7 +557,7 @@ function UpdateDialog(
   selectedToUpdate: Agent | null,
   updatePayload: { first_name: string; last_name: string; phone: string },
   setUpdatePayload: React.Dispatch<React.SetStateAction<any>>,
-  handleConfirmUpdate: () => Promise<void>,
+  setIsSaveConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>,
   isUpdating: boolean
 ) {
   return (
@@ -605,10 +620,50 @@ function UpdateDialog(
           </AlertDialogCancel>
           <AlertDialogAction asChild>
             <Button
-              onClick={async () => await handleConfirmUpdate()}
+              onClick={() => setIsSaveConfirmOpen(true)}
               disabled={isUpdating}
             >
               {isUpdating ? 'Saving...' : 'Save'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function ConfirmUpdateDialog(
+  isSaveConfirmOpen: boolean,
+  setIsSaveConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  selectedToUpdate: Agent | null,
+  handleConfirmUpdate: () => Promise<void>,
+  isUpdating: boolean
+) {
+  return (
+    <AlertDialog open={isSaveConfirmOpen} onOpenChange={setIsSaveConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Save changes</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to save changes to{' '}
+            <strong>
+              {selectedToUpdate
+                ? `${selectedToUpdate.first_name} ${selectedToUpdate.last_name}`
+                : 'this agent'}
+            </strong>
+            ?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsSaveConfirmOpen(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              onClick={async () => await handleConfirmUpdate()}
+              disabled={isUpdating}
+            >
+              {isUpdating ? 'Saving...' : 'Yes, save'}
             </Button>
           </AlertDialogAction>
         </AlertDialogFooter>
