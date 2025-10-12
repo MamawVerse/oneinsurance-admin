@@ -127,7 +127,7 @@ export const useAuthStore = create<AgentAuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: 'admin-auth-storage',
       storage: createJSONStorage(() => localStorage),
       // Only persist authentication data, not temporary states
       partialize: (state) => ({
@@ -139,11 +139,6 @@ export const useAuthStore = create<AgentAuthState>()(
     }
   )
 )
-
-// Helper function to clear the auth store from localStorage
-export const clearAgentAuthStore = () => {
-  localStorage.removeItem('agent-auth-storage')
-}
 
 // Selector hooks for specific parts of the store
 export const useAgentUser = () => useAuthStore((state) => state.user)
