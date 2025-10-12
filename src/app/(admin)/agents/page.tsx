@@ -15,6 +15,8 @@ import { ColumnDef } from '@tanstack/react-table'
 import { useGetAgents } from '@/app/data/queries/agents'
 import { Agent } from '@/types/agents'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -27,6 +29,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import { useActivateAgent, useDeleteAgent } from '@/app/data/mutations/agents'
+import { useUpdateAgent } from '@/app/data/mutations/agents'
 import { useAuthStore } from '@/store/auth-store'
 import { toast } from 'sonner'
 
@@ -139,7 +142,7 @@ export default function AgentsPage() {
     {
       label: 'Update',
       icon: <Edit2 className="h-4 w-4" />,
-      onClick: () => {},
+      onClick: (agent: Agent) => handleUpdateClick(agent),
     },
     {
       label: 'Delete',
@@ -156,6 +159,16 @@ export default function AgentsPage() {
     null
   )
   const [isActivating, setIsActivating] = useState(false)
+  const [isUpdateOpen, setIsUpdateOpen] = useState(false)
+  const [selectedToUpdate, setSelectedToUpdate] = useState<Agent | null>(null)
+  const [updatePayload, setUpdatePayload] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    designation: 'Agent',
+  })
+  const updateMutation = useUpdateAgent()
+  const [isUpdating, setIsUpdating] = useState(false)
 
   function handleDeleteClick(agent: Agent) {
     setSelectedAgent(agent)
@@ -165,6 +178,17 @@ export default function AgentsPage() {
   function handleActivateClick(agent: Agent) {
     setSelectedToActivate(agent)
     setIsActivateOpen(true)
+  }
+
+  function handleUpdateClick(agent: Agent) {
+    setSelectedToUpdate(agent)
+    setUpdatePayload({
+      first_name: agent.first_name,
+      last_name: agent.last_name,
+      phone: agent.phone ?? '',
+      designation: 'Agent',
+    })
+    setIsUpdateOpen(true)
   }
 
   async function handleConfirmDelete() {
@@ -252,6 +276,49 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleConfirmUpdate() {
+    // Determine current active page (reuse same logic)
+    const links = agentsData?.data?.links
+    let targetPage = page
+
+    if (links && Array.isArray(links)) {
+      const activeLink = links.find((l: any) => l.active)
+      if (activeLink) {
+        if (activeLink.url) {
+          try {
+            const u = new URL(activeLink.url)
+            const p = u.searchParams.get('page')
+            if (p) targetPage = Number(p)
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (!targetPage && activeLink.label) {
+          const cleaned = activeLink.label.replace(/[^0-9]/g, '')
+          if (cleaned) targetPage = Number(cleaned)
+        }
+      }
+    }
+
+    try {
+      setIsUpdating(true)
+      const response = await updateMutation.mutateAsync({
+        agentId: selectedToUpdate!.id,
+        payload: updatePayload,
+      })
+      toast.success(response?.message ?? 'Agent updated')
+      setPage(targetPage)
+      await refetch()
+    } catch (e) {
+      toast.error('Failed to update agent. Please try again.')
+    } finally {
+      setIsUpdating(false)
+      setIsUpdateOpen(false)
+      setSelectedToUpdate(null)
+    }
+  }
+
   return (
     <div className="container mx-auto space-y-6 py-6">
       <div>
@@ -319,6 +386,17 @@ export default function AgentsPage() {
                   selectedToActivate,
                   handleConfirmActivate,
                   isActivating
+                )}
+
+                {/* Update dialog */}
+                {UpdateDialog(
+                  isUpdateOpen,
+                  setIsUpdateOpen,
+                  selectedToUpdate,
+                  updatePayload,
+                  setUpdatePayload,
+                  handleConfirmUpdate,
+                  isUpdating
                 )}
 
                 {/* Server-driven pagination links */}
@@ -445,6 +523,87 @@ function ActivateDialog(
               disabled={isActivating}
             >
               {isActivating ? 'Activating...' : 'Activate'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function UpdateDialog(
+  isUpdateOpen: boolean,
+  setIsUpdateOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  selectedToUpdate: Agent | null,
+  updatePayload: { first_name: string; last_name: string; phone: string },
+  setUpdatePayload: React.Dispatch<React.SetStateAction<any>>,
+  handleConfirmUpdate: () => Promise<void>,
+  isUpdating: boolean
+) {
+  return (
+    <AlertDialog open={isUpdateOpen} onOpenChange={setIsUpdateOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Update agent</AlertDialogTitle>
+          <AlertDialogDescription>
+            Update details for{' '}
+            <strong>
+              {selectedToUpdate
+                ? `${selectedToUpdate.first_name} ${selectedToUpdate.last_name}`
+                : 'this agent'}
+            </strong>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        <div className="grid gap-2 py-2">
+          <div>
+            <Label>First name</Label>
+            <Input
+              value={updatePayload.first_name}
+              onChange={(e) =>
+                setUpdatePayload({
+                  ...updatePayload,
+                  first_name: e.target.value,
+                })
+              }
+              placeholder="First name"
+            />
+          </div>
+          <div>
+            <Label>Last name</Label>
+            <Input
+              value={updatePayload.last_name}
+              onChange={(e) =>
+                setUpdatePayload({
+                  ...updatePayload,
+                  last_name: e.target.value,
+                })
+              }
+              placeholder="Last name"
+            />
+          </div>
+          <div>
+            <Label>Phone</Label>
+            <Input
+              value={updatePayload.phone}
+              onChange={(e) =>
+                setUpdatePayload({ ...updatePayload, phone: e.target.value })
+              }
+              placeholder="Phone"
+            />
+          </div>
+        </div>
+
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsUpdateOpen(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              onClick={async () => await handleConfirmUpdate()}
+              disabled={isUpdating}
+            >
+              {isUpdating ? 'Saving...' : 'Save'}
             </Button>
           </AlertDialogAction>
         </AlertDialogFooter>

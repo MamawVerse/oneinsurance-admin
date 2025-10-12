@@ -41,3 +41,26 @@ export function useActivateAgent() {
     },
   })
 }
+
+export function useUpdateAgent() {
+  const { accessToken } = useAuthStore()
+  return useMutation({
+    mutationKey: ['update-agent'],
+    mutationFn: async ({
+      agentId,
+      payload,
+    }: {
+      agentId: number
+      payload: any
+    }) => {
+      const url = `${process.env.NEXT_PUBLIC_BASE_URL}/admin/agents/${agentId}`
+      const response = await axios.put(url, payload, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      return response.data
+    },
+  })
+}
