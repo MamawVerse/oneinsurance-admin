@@ -6,7 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { MoreHorizontal, Trash, Edit2, Check } from 'lucide-react'
-import { DataTable, DataTableAction } from '@/components/ui/data-table'
+import {
+  DataTable,
+  DataTableAction,
+  createSortableHeader,
+} from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useGetAgents } from '@/app/data/queries/agents'
 import { Agent } from '@/types/agents'
@@ -56,7 +60,7 @@ export default function AgentsPage() {
     () => [
       {
         accessorKey: 'first_name',
-        header: 'Agent',
+        header: ({ column }) => createSortableHeader('Agent', column),
         cell: ({ row }) => {
           const a = row.original
           return (
@@ -90,7 +94,7 @@ export default function AgentsPage() {
       },
       {
         accessorKey: 'email',
-        header: 'Email',
+        header: ({ column }) => createSortableHeader('Email', column),
       },
       {
         accessorKey: 'phone',
@@ -106,7 +110,7 @@ export default function AgentsPage() {
       },
       {
         accessorKey: 'status',
-        header: 'Status',
+        header: ({ column }) => createSortableHeader('Status', column),
         cell: ({ row }) => (
           <span
             className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
