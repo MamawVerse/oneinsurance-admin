@@ -15,7 +15,7 @@ export default function Home() {
       if (!isAuthenticated) {
         window.location.href = '/admin/login'
       } else {
-        window.location.href = '/admin/inquiries'
+        window.location.href = '/agents'
       }
     }, 250)
 
