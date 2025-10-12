@@ -176,6 +176,11 @@ export default function AgentsPage() {
   }
 
   function handleActivateClick(agent: Agent) {
+    if (agent.status === 'active') {
+      toast.info('Agent is already active')
+      return
+    }
+
     setSelectedToActivate(agent)
     setIsActivateOpen(true)
   }
