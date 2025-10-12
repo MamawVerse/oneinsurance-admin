@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
+import CryptoJS from 'crypto-js'
 import { LoginResponse } from '@/types/auth'
 
 type AgentUser = {
@@ -128,7 +129,42 @@ export const useAuthStore = create<AgentAuthState>()(
     }),
     {
       name: 'admin-auth-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => {
+        const secret = process.env.NEXT_PUBLIC_STORAGE_SECRET
+
+        if (!secret) {
+          return localStorage
+        }
+
+        return {
+          getItem: (name: string) => {
+            try {
+              const cipher = localStorage.getItem(name)
+              if (!cipher) return null
+              const bytes = CryptoJS.AES.decrypt(cipher, secret)
+              const decrypted = bytes.toString(CryptoJS.enc.Utf8)
+              return decrypted
+            } catch (e) {
+              console.error('Failed to decrypt storage item', e)
+              return null
+            }
+          },
+          setItem: (name: string, value: string) => {
+            try {
+              const secretInner = process.env.NEXT_PUBLIC_STORAGE_SECRET
+              if (!secretInner) {
+                localStorage.setItem(name, value)
+                return
+              }
+              const cipher = CryptoJS.AES.encrypt(value, secretInner).toString()
+              localStorage.setItem(name, cipher)
+            } catch (e) {
+              console.error('Failed to encrypt storage item', e)
+            }
+          },
+          removeItem: (name: string) => localStorage.removeItem(name),
+        }
+      }),
       // Only persist authentication data, not temporary states
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
