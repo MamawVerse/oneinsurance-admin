@@ -22,7 +22,7 @@ import {
   AlertDialogCancel,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { useDeleteAgent } from '@/app/data/mutations/agents'
+import { useActivateAgent, useDeleteAgent } from '@/app/data/mutations/agents'
 import { useAuthStore } from '@/store/auth-store'
 import { toast } from 'sonner'
 
@@ -35,6 +35,7 @@ export default function AgentsPage() {
     refetch,
   } = useGetAgents(page)
   const deleteMutation = useDeleteAgent()
+  const activateMutation = useActivateAgent()
   const [isDeleting, setIsDeleting] = useState(false)
   const { isAuthenticated } = useAuthStore()
   const [authChecking, setAuthChecking] = useState(true)
@@ -128,7 +129,7 @@ export default function AgentsPage() {
     {
       label: 'Activate',
       icon: <Check className="h-4 w-4" />,
-      onClick: () => {},
+      onClick: (agent) => handleActivateClick(agent),
       variant: 'default',
     },
     {
@@ -146,10 +147,20 @@ export default function AgentsPage() {
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null)
+  const [isActivateOpen, setIsActivateOpen] = useState(false)
+  const [selectedToActivate, setSelectedToActivate] = useState<Agent | null>(
+    null
+  )
+  const [isActivating, setIsActivating] = useState(false)
 
   function handleDeleteClick(agent: Agent) {
     setSelectedAgent(agent)
     setIsDeleteOpen(true)
+  }
+
+  function handleActivateClick(agent: Agent) {
+    setSelectedToActivate(agent)
+    setIsActivateOpen(true)
   }
 
   async function handleConfirmDelete() {
@@ -192,6 +203,48 @@ export default function AgentsPage() {
       setIsDeleting(false)
       setIsDeleteOpen(false)
       setSelectedAgent(null)
+    }
+  }
+
+  async function handleConfirmActivate() {
+    // Determine the current active page from the agents response links (if present)
+    const links = agentsData?.data?.links
+    let targetPage = page
+
+    if (links && Array.isArray(links)) {
+      const activeLink = links.find((l: any) => l.active)
+      if (activeLink) {
+        if (activeLink.url) {
+          try {
+            const u = new URL(activeLink.url)
+            const p = u.searchParams.get('page')
+            if (p) targetPage = Number(p)
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        if (!targetPage && activeLink.label) {
+          const cleaned = activeLink.label.replace(/[^0-9]/g, '')
+          if (cleaned) targetPage = Number(cleaned)
+        }
+      }
+    }
+
+    try {
+      setIsActivating(true)
+      const response = await activateMutation.mutateAsync(
+        selectedToActivate!.id
+      )
+      toast.success(response?.message ?? 'Agent activated')
+      setPage(targetPage)
+      await refetch()
+    } catch (error) {
+      toast.error('Failed to activate agent. Please try again.')
+    } finally {
+      setIsActivating(false)
+      setIsActivateOpen(false)
+      setSelectedToActivate(null)
     }
   }
 
@@ -248,35 +301,21 @@ export default function AgentsPage() {
                 />
 
                 {/* Delete confirmation dialog */}
-                <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete agent</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Are you sure you want to delete{' '}
-                        <strong>
-                          {selectedAgent
-                            ? `${selectedAgent.first_name} ${selectedAgent.last_name}`
-                            : 'this agent'}
-                        </strong>
-                        ? This action cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel onClick={() => setIsDeleteOpen(false)}>
-                        Cancel
-                      </AlertDialogCancel>
-                      <AlertDialogAction asChild>
-                        <Button
-                          variant="destructive"
-                          onClick={async () => await handleConfirmDelete()}
-                        >
-                          Delete
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                {DeleteDialog(
+                  isDeleteOpen,
+                  setIsDeleteOpen,
+                  selectedAgent,
+                  handleConfirmDelete
+                )}
+
+                {/* Activate confirmation dialog */}
+                {ActivateDialog(
+                  isActivateOpen,
+                  setIsActivateOpen,
+                  selectedToActivate,
+                  handleConfirmActivate,
+                  isActivating
+                )}
 
                 {/* Server-driven pagination links */}
                 <div className="mt-4 flex items-center justify-end gap-2">
@@ -328,5 +367,84 @@ export default function AgentsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+function DeleteDialog(
+  isDeleteOpen: boolean,
+  setIsDeleteOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  selectedAgent: Agent | null,
+  handleConfirmDelete: () => Promise<void>
+) {
+  return (
+    <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete agent</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete{' '}
+            <strong>
+              {selectedAgent
+                ? `${selectedAgent.first_name} ${selectedAgent.last_name}`
+                : 'this agent'}
+            </strong>
+            ? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsDeleteOpen(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              variant="destructive"
+              onClick={async () => await handleConfirmDelete()}
+            >
+              Delete
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+function ActivateDialog(
+  isActivateOpen: boolean,
+  setIsActivateOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  selectedToActivate: Agent | null,
+  handleConfirmActivate: () => Promise<void>,
+  isActivating: boolean
+) {
+  return (
+    <AlertDialog open={isActivateOpen} onOpenChange={setIsActivateOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Activate agent</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to activate{' '}
+            <strong>
+              {selectedToActivate
+                ? `${selectedToActivate.first_name} ${selectedToActivate.last_name}`
+                : 'this agent'}
+            </strong>
+            ?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={() => setIsActivateOpen(false)}>
+            Cancel
+          </AlertDialogCancel>
+          <AlertDialogAction asChild>
+            <Button
+              variant="default"
+              onClick={async () => await handleConfirmActivate()}
+              disabled={isActivating}
+            >
+              {isActivating ? 'Activating...' : 'Activate'}
+            </Button>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

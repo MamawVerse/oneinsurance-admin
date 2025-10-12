@@ -19,3 +19,25 @@ export function useDeleteAgent() {
     },
   })
 }
+
+export function useActivateAgent() {
+  const { accessToken } = useAuthStore()
+  return useMutation({
+    mutationKey: ['activate-agent'],
+    mutationFn: async (agentId: number) => {
+      const url = `${process.env.NEXT_PUBLIC_BASE_URL}/auth/activate-account`
+      const response = await axios.post(
+        url,
+        { user_id: agentId },
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      )
+
+      console.log('Activate Agent Response:', response.data)
+      return response.data
+    },
+  })
+}
