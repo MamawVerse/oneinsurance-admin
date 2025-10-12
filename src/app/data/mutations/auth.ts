@@ -2,6 +2,7 @@ import axios from 'axios'
 import { useMutation } from '@tanstack/react-query'
 import { Login, LoginResponse } from '@/types/auth'
 import { removeLocalStorage } from '@/utils/remove-session-storage'
+import { useAuthStore } from '@/store/auth-store'
 
 export function useLoginAdmin() {
   return useMutation({
@@ -15,16 +16,24 @@ export function useLoginAdmin() {
 }
 
 export function useLogoutAdmin() {
+  const { accessToken } = useAuthStore()
+
   return useMutation({
     mutationKey: ['logout-admin'],
     mutationFn: async () => {
       const url = `${process.env.NEXT_PUBLIC_BASE_URL}/admin/logout`
-      const response = await axios.post(url)
+
+      const response = await axios.post(url, null, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
 
       if (response.status !== 200) {
         throw new Error('Failed to logout')
       }
-      removeLocalStorage('auth_token')
+      // Clear local auth state/storage
+      removeLocalStorage('admin-auth-storage')
 
       console.log('Logout response:', response.data)
     },

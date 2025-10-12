@@ -33,7 +33,7 @@ export default function LoginPage() {
     // Check if agent is authenticated
     if (isAuthenticated && hydrated) {
       // Redirect to login page if not authenticated
-      router.push('/inquiries')
+      router.push('/agents')
       return
     }
   }, [isAuthenticated, router, hydrated])
@@ -60,7 +60,7 @@ export default function LoginPage() {
         toast.success(`Welcome back, ${result.data.user.name}!`)
 
         // Redirect to admin inquiries
-        router.push('/inquiries')
+        router.push('/agents')
       } catch (error: any) {
         console.error('Login error:', error)
 
