@@ -157,15 +157,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          <div className="text-muted-foreground flex justify-end text-sm">
-            <Link
-              href="/agent/forgot-password"
-              className="hover:text-primary underline underline-offset-4"
-            >
-              Forgot your password?
-            </Link>
-          </div>
-
           {/* Login Button */}
           <div className="flex justify-end">
             <form.Subscribe
@@ -188,21 +179,6 @@ export default function LoginPage() {
           </div>
         </div>
       </form>
-
-      {/* Additional Actions */}
-      <div className="relative flex items-center justify-start py-4">
-        <div className="text-muted-foreground flex flex-col items-start gap-2 text-sm">
-          <p>
-            Don't have an account?{' '}
-            <Link
-              href="/agent/signup"
-              className="hover:text-primary underline underline-offset-4"
-            >
-              Sign up now!
-            </Link>
-          </p>
-        </div>
-      </div>
     </div>
   )
 }

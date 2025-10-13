@@ -13,7 +13,7 @@ export default function Home() {
     const t = setTimeout(() => {
       setAuthChecking(false)
       if (!isAuthenticated) {
-        window.location.href = '/admin/login'
+        window.location.href = '/login'
       } else {
         window.location.href = '/agents'
       }
