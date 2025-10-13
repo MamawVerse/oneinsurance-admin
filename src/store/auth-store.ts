@@ -130,12 +130,27 @@ export const useAuthStore = create<AgentAuthState>()(
     {
       name: 'admin-auth-storage',
       storage: createJSONStorage(() => {
+        // If running on the server (SSR) provide a noop storage to avoid
+        // referencing `localStorage` which doesn't exist on the server.
+        if (
+          typeof window === 'undefined' ||
+          typeof localStorage === 'undefined'
+        ) {
+          return {
+            getItem: (_name: string) => null,
+            setItem: (_name: string, _value: string) => {},
+            removeItem: (_name: string) => {},
+          } as Storage
+        }
+
         const secret = process.env.NEXT_PUBLIC_STORAGE_SECRET
 
+        // If no secret is provided, use plain localStorage in the browser.
         if (!secret) {
           return localStorage
         }
 
+        // Encrypted storage wrapper for the browser when a secret is set.
         return {
           getItem: (name: string) => {
             try {
@@ -151,19 +166,14 @@ export const useAuthStore = create<AgentAuthState>()(
           },
           setItem: (name: string, value: string) => {
             try {
-              const secretInner = process.env.NEXT_PUBLIC_STORAGE_SECRET
-              if (!secretInner) {
-                localStorage.setItem(name, value)
-                return
-              }
-              const cipher = CryptoJS.AES.encrypt(value, secretInner).toString()
+              const cipher = CryptoJS.AES.encrypt(value, secret).toString()
               localStorage.setItem(name, cipher)
             } catch (e) {
               console.error('Failed to encrypt storage item', e)
             }
           },
           removeItem: (name: string) => localStorage.removeItem(name),
-        }
+        } as Storage
       }),
       // Only persist authentication data, not temporary states
       partialize: (state) => ({
