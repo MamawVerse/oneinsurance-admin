@@ -137,7 +137,7 @@ export function DataTable<TData extends Record<string, any>, TValue>({
 
           return (
             <DropdownMenu>
-              <DropdownMenuTrigger>
+              <DropdownMenuTrigger onClick={(e) => e.stopPropagation()}>
                 <span className="sr-only">Open menu</span>
                 <MoreHorizontal className="h-4 w-4" />
               </DropdownMenuTrigger>
@@ -147,7 +147,10 @@ export function DataTable<TData extends Record<string, any>, TValue>({
                 {actions.map((action, index) => (
                   <DropdownMenuItem
                     key={index}
-                    onClick={() => action.onClick(rowData)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      action.onClick(rowData)
+                    }}
                     className={
                       action.variant === 'destructive' ? 'text-red-600' : ''
                     }
