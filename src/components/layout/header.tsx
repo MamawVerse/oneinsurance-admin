@@ -63,7 +63,7 @@ export const Header = ({
 
   const handleLogout = async () => {
     await logoutAdmin()
-    window.location.href = '/admin/login'
+    window.location.href = '/login'
   }
 
   return (
