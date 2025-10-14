@@ -34,6 +34,7 @@ import { useActivateAgent, useDeleteAgent } from '@/app/data/mutations/agents'
 import { useUpdateAgent } from '@/app/data/mutations/agents'
 import { useAuthStore } from '@/store/auth-store'
 import { toast } from 'sonner'
+import { removeLocalStorage } from '@/utils/remove-session-storage'
 
 export default function AgentsPage() {
   const [page, setPage] = useState<number>(1)
@@ -41,6 +42,7 @@ export default function AgentsPage() {
     data: agentsData,
     isFetching,
     isLoading,
+    error,
     refetch,
   } = useGetAgents(page)
   const deleteMutation = useDeleteAgent()
@@ -54,7 +56,7 @@ export default function AgentsPage() {
     const t = setTimeout(() => {
       setAuthChecking(false)
       if (!isAuthenticated) {
-        window.location.href = '/admin/login'
+        window.location.href = '/login'
       }
     }, 250)
 
@@ -339,6 +341,11 @@ export default function AgentsPage() {
       setIsUpdateOpen(false)
       setSelectedToUpdate(null)
     }
+  }
+
+  if (error?.message === 'Request failed with status code 401') {
+    removeLocalStorage('admin-auth-storage')
+    window.location.href = '/login'
   }
 
   return (
