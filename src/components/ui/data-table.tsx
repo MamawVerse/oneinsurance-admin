@@ -196,63 +196,6 @@ export function DataTable<TData extends Record<string, any>, TValue>({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        {searchKey && (
-          <div className="relative max-w-sm flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-            <Input
-              placeholder={`Search by ${searchKey}...`}
-              value={
-                (table.getColumn(searchKey)?.getFilterValue() as string) ?? ''
-              }
-              onChange={(event) =>
-                table.getColumn(searchKey)?.setFilterValue(event.target.value)
-              }
-              className="pl-9"
-            />
-          </div>
-        )}
-
-        <div className="flex items-center gap-4">
-          {enableColumnVisibility && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="rounded-full">
-                  Columns <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id}
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <Button
-            onClick={() => exportToCSV(data)}
-            className="gap-2 rounded-full"
-          >
-            <ArrowUpRight />
-            Export
-          </Button>
-        </div>
-      </div>
-
       <div className="bg-background rounded-md border">
         <Table>
           <TableHeader>
