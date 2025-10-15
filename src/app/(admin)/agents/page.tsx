@@ -5,14 +5,22 @@ import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { MoreHorizontal, Trash, Edit2, Check } from 'lucide-react'
+import {
+  MoreHorizontal,
+  Trash,
+  Edit2,
+  Check,
+  X,
+  ArrowUpRight,
+} from 'lucide-react'
 import {
   DataTable,
   DataTableAction,
   createSortableHeader,
+  exportToCSV,
 } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
-import { useGetAgents } from '@/app/data/queries/agents'
+import { useGetAgents, useSearchAgents } from '@/app/data/queries/agents'
 import { useRouter } from 'next/navigation'
 import { Agent } from '@/types/agents'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -48,13 +56,22 @@ export default function AgentsPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const { isAuthenticated } = useAuthStore()
   const [authChecking, setAuthChecking] = useState(true)
+  const [searchKey, setSearchKey] = useState('')
+  const [isSearchMode, setIsSearchMode] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const {
+    data: searchResults,
+    isFetching: isSearching,
+    refetch: refetchSearch,
+  } = useSearchAgents(searchQuery)
 
   useEffect(() => {
     // Small delay to let zustand persist/hydrate and avoid redirect flicker
     const t = setTimeout(() => {
       setAuthChecking(false)
       if (!isAuthenticated) {
-        window.location.href = '/admin/login'
+        window.location.href = '/login'
       }
     }, 250)
 
@@ -341,6 +358,25 @@ export default function AgentsPage() {
     }
   }
 
+  function handleSearchButtonClick(): void {
+    if (searchKey.trim() === '') {
+      toast.info('Please enter the agent name to search.')
+      return
+    }
+    setSearchQuery(searchKey.trim())
+    setIsSearchMode(true)
+  }
+
+  function handleClearSearch(): void {
+    setSearchKey('')
+    setSearchQuery('')
+    setIsSearchMode(false)
+  }
+
+  // Determine which data to display
+  const displayData = isSearchMode ? searchResults : agentsData
+  const isDataLoading = isSearchMode ? isSearching : isFetching || isLoading
+
   return (
     <div className="container mx-auto space-y-6 py-6">
       <div>
@@ -363,7 +399,7 @@ export default function AgentsPage() {
         </CardHeader>
         <CardContent>
           <div>
-            {authChecking || isFetching || isLoading ? (
+            {authChecking || isDataLoading ? (
               <div className="w-full space-y-2">
                 {[...Array(5)].map((_, i) => (
                   <div
@@ -385,12 +421,58 @@ export default function AgentsPage() {
               </div>
             ) : (
               <>
+                <div className="mb-4 flex justify-between">
+                  <div className="flex w-[50%] items-center gap-2">
+                    <Input
+                      value={searchKey}
+                      onChange={(e) => setSearchKey(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearchButtonClick()
+                        }
+                      }}
+                      placeholder="Search agents by name, email, or phone..."
+                      className="max-w-md rounded-full"
+                    />
+                    <Button
+                      className="from-primary to-lilac rounded-full bg-gradient-to-r text-white"
+                      onClick={handleSearchButtonClick}
+                      disabled={!searchKey.trim()}
+                    >
+                      Search
+                    </Button>
+                    {isSearchMode && (
+                      <Button
+                        variant="outline"
+                        className="rounded-full"
+                        onClick={handleClearSearch}
+                      >
+                        <X className="mr-2 h-4 w-4" />
+                        Clear
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button
+                    onClick={() => exportToCSV(displayData?.data.data ?? [])}
+                    className="gap-2 rounded-full"
+                  >
+                    <ArrowUpRight />
+                    Export
+                  </Button>
+                </div>
+
+                {isSearchMode && (
+                  <div className="text-muted-foreground mb-4 text-sm">
+                    Showing search results for "{searchQuery}"
+                  </div>
+                )}
                 <DataTable
                   columns={columns}
-                  data={agentsData?.data.data ?? []}
-                  searchKey="email"
+                  data={displayData?.data.data ?? []}
                   onRowClick={(row) => handleRowClick(row)}
                   actions={actions}
+                  enableColumnVisibility={false}
                   enablePagination={false}
                 />
 
@@ -443,49 +525,128 @@ export default function AgentsPage() {
                 )}
 
                 {/* Server-driven pagination links */}
-                <div className="mt-4 flex items-center justify-end gap-2">
-                  {agentsData?.data.links?.map(
-                    (
-                      linkObj: {
-                        url: string | null
-                        label: string
-                        active: boolean
-                      },
-                      idx: number
-                    ) => {
-                      const { url, label: rawLabel, active } = linkObj
-                      const cleanedLabel = rawLabel.replace(
-                        /&laquo;|&raquo;|&nbsp;/g,
-                        (m) =>
-                          m === '&laquo;' ? '«' : m === '&raquo;' ? '»' : ' '
-                      )
-                      const disabled = url === null
+                {!isSearchMode && (
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    {(() => {
+                      const links = displayData?.data.links ?? []
 
-                      let pageNum: number | null = null
-                      try {
-                        if (url) {
-                          const u = new URL(url)
-                          const p = u.searchParams.get('page')
-                          pageNum = p ? Number(p) : null
-                        }
-                      } catch (e) {
-                        pageNum = null
+                      // Separate prev/next from numbered pages
+                      const prevLink = links.find(
+                        (l: any) =>
+                          l.label.includes('Previous') ||
+                          l.label.includes('&laquo;')
+                      )
+                      const nextLink = links.find(
+                        (l: any) =>
+                          l.label.includes('Next') ||
+                          l.label.includes('&raquo;')
+                      )
+
+                      // Get only numbered page links
+                      const pageLinks = links.filter((l: any) => {
+                        const cleaned = l.label.replace(/[^0-9]/g, '')
+                        return cleaned !== '' && !isNaN(Number(cleaned))
+                      })
+
+                      // Find active page index
+                      const activePageIndex = pageLinks.findIndex(
+                        (l: any) => l.active
+                      )
+                      const totalPages = pageLinks.length
+
+                      // Calculate which pages to show (5 pages max)
+                      const maxPagesToShow = 5
+                      let startIndex = Math.max(
+                        0,
+                        activePageIndex - Math.floor(maxPagesToShow / 2)
+                      )
+                      let endIndex = Math.min(
+                        totalPages,
+                        startIndex + maxPagesToShow
+                      )
+
+                      // Adjust if we're near the end
+                      if (endIndex - startIndex < maxPagesToShow) {
+                        startIndex = Math.max(0, endIndex - maxPagesToShow)
                       }
 
+                      const visiblePages = pageLinks.slice(startIndex, endIndex)
+
                       return (
-                        <Button
-                          key={idx}
-                          variant={active ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => pageNum && setPage(pageNum)}
-                          disabled={disabled}
-                        >
-                          {cleanedLabel}
-                        </Button>
+                        <>
+                          {/* Previous button */}
+                          {prevLink && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (prevLink.url) {
+                                  try {
+                                    const u = new URL(prevLink.url)
+                                    const p = u.searchParams.get('page')
+                                    p && setPage(Number(p))
+                                  } catch (e) {}
+                                }
+                              }}
+                              disabled={!prevLink.url}
+                            >
+                              «
+                            </Button>
+                          )}
+
+                          {/* Page numbers */}
+                          {visiblePages.map((linkObj: any, idx: number) => {
+                            const { url, label: rawLabel, active } = linkObj
+                            const cleanedLabel = rawLabel.replace(/[^0-9]/g, '')
+
+                            let pageNum: number | null = null
+                            try {
+                              if (url) {
+                                const u = new URL(url)
+                                const p = u.searchParams.get('page')
+                                pageNum = p ? Number(p) : null
+                              }
+                            } catch (e) {
+                              pageNum = null
+                            }
+
+                            return (
+                              <Button
+                                key={`page-${cleanedLabel}-${idx}`}
+                                variant={active ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => pageNum && setPage(pageNum)}
+                                disabled={!url}
+                              >
+                                {cleanedLabel}
+                              </Button>
+                            )
+                          })}
+
+                          {/* Next button */}
+                          {nextLink && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (nextLink.url) {
+                                  try {
+                                    const u = new URL(nextLink.url)
+                                    const p = u.searchParams.get('page')
+                                    p && setPage(Number(p))
+                                  } catch (e) {}
+                                }
+                              }}
+                              disabled={!nextLink.url}
+                            >
+                              »
+                            </Button>
+                          )}
+                        </>
                       )
-                    }
-                  )}
-                </div>
+                    })()}
+                  </div>
+                )}
               </>
             )}
           </div>
