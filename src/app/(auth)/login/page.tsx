@@ -3,10 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from '@tanstack/react-form'
-import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
-import Image from 'next/image'
-
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -83,24 +80,8 @@ export default function LoginPage() {
   })
 
   return (
-    <div className="flex w-full flex-col gap-4 rounded-2xl bg-white p-10">
-      <div className="flex justify-between">
-        <Image
-          src="/images/logo.png"
-          alt="Company Logo"
-          width={150}
-          height={100}
-          className="object-contain"
-        />
-        <Image
-          src="/images/IFRC.png"
-          alt="IFRC Logo"
-          width={100}
-          height={100}
-          className="object-contain"
-        />
-      </div>
-      <h1 className="from-primary to-lilac w-fit bg-gradient-to-r bg-clip-text py-2 text-3xl font-black text-transparent md:text-6xl">
+    <div className="flex w-full flex-col justify-center gap-6">
+      <h1 className="from-primary to-lilac w-fit bg-gradient-to-r bg-clip-text py-2 text-3xl leading-tight font-black text-transparent md:text-4xl lg:text-5xl">
         Log In
       </h1>
 
@@ -109,13 +90,16 @@ export default function LoginPage() {
           e.preventDefault()
           form.handleSubmit()
         }}
+        className="w-full"
       >
         <div className="flex w-full flex-col gap-4">
           {/* Email Field */}
           <form.Field name="email">
             {(field) => (
               <div className="flex w-full flex-col gap-2">
-                <Label htmlFor={field.name}>Email *</Label>
+                <Label htmlFor={field.name} className="required-field">
+                  Email
+                </Label>
                 <Input
                   name={field.name}
                   type="email"
@@ -125,6 +109,7 @@ export default function LoginPage() {
                   }}
                   placeholder="Enter your email address"
                   disabled={isLoading}
+                  className="w-full"
                 />
                 <FieldInfo field={field} />
               </div>
@@ -135,7 +120,9 @@ export default function LoginPage() {
           <form.Field name="password">
             {(field) => (
               <div className="flex w-full flex-col gap-2">
-                <Label htmlFor={field.name}>Password *</Label>
+                <Label htmlFor={field.name} className="required-field">
+                  Password
+                </Label>
                 <PasswordInput
                   name={field.name}
                   value={field.state.value}
@@ -144,6 +131,7 @@ export default function LoginPage() {
                   }}
                   placeholder="Enter your password"
                   disabled={isLoading}
+                  className="w-full"
                 />
                 <FieldInfo field={field} />
               </div>
@@ -158,7 +146,7 @@ export default function LoginPage() {
           )}
 
           {/* Login Button */}
-          <div className="flex justify-end">
+          <div className="flex w-full justify-end pt-8">
             <form.Subscribe
               selector={(state) => [state.canSubmit, state.isSubmitting]}
             >
@@ -166,7 +154,7 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={!canSubmit || isSubmitting || isLoading}
-                  className="from-primary to-lilac hover:from-primary/90 hover:to-lilac/90 focus:from-primary/90 focus:to-lilac/90 w-fit rounded-full bg-gradient-to-r px-4 text-white"
+                  className="from-primary to-lilac hover:from-primary/90 hover:to-lilac/90 focus:from-primary/90 focus:to-lilac/90 rounded-full bg-gradient-to-r text-white"
                 >
                   {isSubmitting || isLoading ? (
                     <Loader2 className="animate-spin" />

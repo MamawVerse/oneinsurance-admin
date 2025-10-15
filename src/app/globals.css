@@ -131,3 +131,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .required-field::after {
+    content: '*';
+    @apply text-destructive ml-0.5;
+  }
+}
