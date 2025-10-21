@@ -4,9 +4,19 @@ import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowUpRight, X } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { ArrowUpRight, X, Eye } from 'lucide-react'
 import {
   DataTable,
+  DataTableAction,
   createSortableHeader,
   exportToCSV,
 } from '@/components/ui/data-table'
@@ -105,9 +115,18 @@ export default function TransactionsPage() {
           return date ? new Date(date).toLocaleString() : '-'
         },
       },
+      // actions column will be injected by DataTable via the actions prop
     ],
     []
   )
+
+  const actions: DataTableAction<Transaction>[] = [
+    {
+      label: 'View Details',
+      icon: <Eye className="h-4 w-4" />,
+      onClick: (tx: Transaction) => handleViewDetails(tx),
+    },
+  ]
 
   function handleSearchButtonClick(): void {
     if (searchKey.trim() === '') {
@@ -122,6 +141,16 @@ export default function TransactionsPage() {
     setSearchKey('')
     setIsSearchMode(false)
     searchMutation.reset()
+  }
+
+  // Details dialog state
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null)
+
+  function handleViewDetails(transaction: Transaction) {
+    setSelectedTransaction(transaction)
+    setIsDetailsOpen(true)
   }
 
   // Determine which data to display
@@ -218,10 +247,18 @@ export default function TransactionsPage() {
                 <DataTable
                   columns={columns}
                   data={displayData?.data?.data ?? []}
+                  actions={actions}
                   enableColumnVisibility={false}
                   enablePagination={false}
                   pageSize={1000}
                 />
+
+                {/* Details dialog (shadcn Dialog) */}
+                {ViewTransactionDetails(
+                  isDetailsOpen,
+                  setIsDetailsOpen,
+                  selectedTransaction
+                )}
 
                 {/* Server-driven pagination links */}
                 <div className="mt-4 flex items-center justify-end gap-2">
@@ -349,5 +386,101 @@ export default function TransactionsPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+function ViewTransactionDetails(
+  isDetailsOpen: boolean,
+  setIsDetailsOpen: React.Dispatch<React.SetStateAction<boolean>>,
+  selectedTransaction: {
+    status: 'pending' | 'completed' | 'failed' | 'cancelled'
+    id: number
+    agent_id: number
+    agent_code_used: string
+    proposal_number: string
+    policy_id: string
+    merchant_transaction_id: string | null
+    amount: string | number | null
+    customer_id: number | null
+    transaction_status: string | null
+    transaction_date: string | null
+    created_at: string
+    updated_at: string
+    deleted_at: string | null
+  } | null
+) {
+  return (
+    <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Transaction Details</DialogTitle>
+          <DialogDescription>
+            Details for the selected transaction
+          </DialogDescription>
+        </DialogHeader>
+
+        {selectedTransaction ? (
+          <div className="space-y-2 py-2">
+            <div>
+              <strong>Proposal Number:</strong>{' '}
+              {selectedTransaction.proposal_number}
+            </div>
+            <div>
+              <strong>Policy ID:</strong> {selectedTransaction.policy_id}
+            </div>
+            <div>
+              <strong>Merchant Transaction ID:</strong>{' '}
+              {selectedTransaction.merchant_transaction_id ?? '-'}
+            </div>
+            <div>
+              <strong>Amount:</strong>{' '}
+              {selectedTransaction.amount !== null
+                ? `₱${typeof selectedTransaction.amount === 'string' ? parseFloat(selectedTransaction.amount).toFixed(2) : selectedTransaction.amount.toFixed(2)}`
+                : '-'}
+            </div>
+            <div>
+              <strong>Status:</strong> {selectedTransaction.status}
+            </div>
+            <div>
+              <strong>Transaction Status:</strong>{' '}
+              {selectedTransaction.transaction_status ?? '-'}
+            </div>
+            <div>
+              <strong>Transaction Date:</strong>{' '}
+              {selectedTransaction.transaction_date
+                ? new Date(
+                    selectedTransaction.transaction_date
+                  ).toLocaleString()
+                : '-'}
+            </div>
+            <div>
+              <strong>Agent Code Used:</strong>{' '}
+              {selectedTransaction.agent_code_used}
+            </div>
+            <div>
+              <strong>Customer ID:</strong>{' '}
+              {selectedTransaction.customer_id ?? '-'}
+            </div>
+            <div>
+              <strong>Created At:</strong>{' '}
+              {selectedTransaction.created_at
+                ? new Date(selectedTransaction.created_at).toLocaleString()
+                : '-'}
+            </div>
+            <div>
+              <strong>Updated At:</strong>{' '}
+              {selectedTransaction.updated_at
+                ? new Date(selectedTransaction.updated_at).toLocaleString()
+                : '-'}
+            </div>
+          </div>
+        ) : (
+          <div>No transaction selected</div>
+        )}
+
+        <DialogFooter>
+          <Button onClick={() => setIsDetailsOpen(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
