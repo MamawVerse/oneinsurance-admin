@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
 import { useGetTransactions } from '@/app/data/queries/transactions'
+import { useSearchTransaction } from '@/app/data/mutations/transactions'
 import { Transaction } from '@/types/transactions'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
@@ -31,7 +32,7 @@ export default function TransactionsPage() {
   const [authChecking, setAuthChecking] = useState(true)
   const [searchKey, setSearchKey] = useState('')
   const [isSearchMode, setIsSearchMode] = useState(false)
-  const [filteredData, setFilteredData] = useState<Transaction[]>([])
+  const searchMutation = useSearchTransaction()
 
   useEffect(() => {
     // Small delay to let zustand persist/hydrate and avoid redirect flicker
@@ -44,33 +45,6 @@ export default function TransactionsPage() {
 
     return () => clearTimeout(t)
   }, [isAuthenticated])
-
-  // Filter transactions based on search key
-  useEffect(() => {
-    if (!transactionsData?.data?.data) return
-
-    if (!searchKey.trim()) {
-      setFilteredData(transactionsData.data.data)
-      setIsSearchMode(false)
-      return
-    }
-
-    const filtered = transactionsData.data.data.filter((transaction) => {
-      const searchLower = searchKey.toLowerCase()
-      return (
-        transaction.proposal_number.toLowerCase().includes(searchLower) ||
-        transaction.policy_id.toLowerCase().includes(searchLower) ||
-        transaction.merchant_transaction_id
-          ?.toLowerCase()
-          .includes(searchLower) ||
-        transaction.transaction_status?.toLowerCase().includes(searchLower) ||
-        transaction.status.toLowerCase().includes(searchLower)
-      )
-    })
-
-    setFilteredData(filtered)
-    setIsSearchMode(true)
-  }, [searchKey, transactionsData])
 
   const columns = React.useMemo<ColumnDef<Transaction, any>[]>(
     () => [
@@ -135,12 +109,26 @@ export default function TransactionsPage() {
     []
   )
 
+  function handleSearchButtonClick(): void {
+    if (searchKey.trim() === '') {
+      toast.info('Please enter a search term.')
+      return
+    }
+    searchMutation.mutate(searchKey.trim())
+    setIsSearchMode(true)
+  }
+
   function handleClearSearch(): void {
     setSearchKey('')
     setIsSearchMode(false)
+    searchMutation.reset()
   }
 
-  const displayData = filteredData
+  // Determine which data to display
+  const displayData = isSearchMode ? searchMutation.data : transactionsData
+  const isDataLoading = isSearchMode
+    ? searchMutation.isPending
+    : isFetching || isLoading
 
   return (
     <div className="container mx-auto space-y-6 py-6">
@@ -159,7 +147,7 @@ export default function TransactionsPage() {
         </CardHeader>
         <CardContent>
           <div>
-            {authChecking || isFetching || isLoading ? (
+            {authChecking || isDataLoading ? (
               <div className="w-full space-y-2">
                 {[...Array(5)].map((_, i) => (
                   <div
@@ -188,12 +176,19 @@ export default function TransactionsPage() {
                       onChange={(e) => setSearchKey(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          // Search is done automatically on input change
+                          handleSearchButtonClick()
                         }
                       }}
                       placeholder="Search by proposal number, policy ID, transaction ID..."
                       className="max-w-md rounded-full"
                     />
+                    <Button
+                      className="from-primary to-lilac rounded-full bg-gradient-to-r text-white"
+                      onClick={handleSearchButtonClick}
+                      disabled={!searchKey.trim()}
+                    >
+                      Search
+                    </Button>
                     {isSearchMode && (
                       <Button
                         variant="outline"
@@ -207,7 +202,7 @@ export default function TransactionsPage() {
                   </div>
 
                   <Button
-                    onClick={() => exportToCSV(displayData ?? [])}
+                    onClick={() => exportToCSV(displayData?.data?.data ?? [])}
                     className="gap-2 rounded-full"
                   >
                     <ArrowUpRight />
@@ -217,141 +212,137 @@ export default function TransactionsPage() {
 
                 {isSearchMode && (
                   <div className="text-muted-foreground mb-4 text-sm">
-                    Showing {displayData.length} search result(s) for "
-                    {searchKey}"
+                    Showing search results for "{searchKey}"
                   </div>
                 )}
                 <DataTable
                   columns={columns}
-                  data={displayData ?? []}
+                  data={displayData?.data?.data ?? []}
                   enableColumnVisibility={false}
                   enablePagination={false}
                   pageSize={1000}
                 />
 
                 {/* Server-driven pagination links */}
-                {!isSearchMode && (
-                  <div className="mt-4 flex items-center justify-end gap-2">
-                    {(() => {
-                      const links = transactionsData?.data.links ?? []
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  {(() => {
+                    const links = transactionsData?.data.links ?? []
 
-                      // Separate prev/next from numbered pages
-                      const prevLink = links.find(
-                        (l: any) =>
-                          l.label.includes('Previous') ||
-                          l.label.includes('&laquo;')
-                      )
-                      const nextLink = links.find(
-                        (l: any) =>
-                          l.label.includes('Next') ||
-                          l.label.includes('&raquo;')
-                      )
+                    // Separate prev/next from numbered pages
+                    const prevLink = links.find(
+                      (l: any) =>
+                        l.label.includes('Previous') ||
+                        l.label.includes('&laquo;')
+                    )
+                    const nextLink = links.find(
+                      (l: any) =>
+                        l.label.includes('Next') || l.label.includes('&raquo;')
+                    )
 
-                      // Get only numbered page links
-                      const pageLinks = links.filter((l: any) => {
-                        const cleaned = l.label.replace(/[^0-9]/g, '')
-                        return cleaned !== '' && !isNaN(Number(cleaned))
-                      })
+                    // Get only numbered page links
+                    const pageLinks = links.filter((l: any) => {
+                      const cleaned = l.label.replace(/[^0-9]/g, '')
+                      return cleaned !== '' && !isNaN(Number(cleaned))
+                    })
 
-                      // Find active page index
-                      const activePageIndex = pageLinks.findIndex(
-                        (l: any) => l.active
-                      )
-                      const totalPages = pageLinks.length
+                    // Find active page index
+                    const activePageIndex = pageLinks.findIndex(
+                      (l: any) => l.active
+                    )
+                    const totalPages = pageLinks.length
 
-                      // Calculate which pages to show (5 pages max)
-                      const maxPagesToShow = 5
-                      let startIndex = Math.max(
-                        0,
-                        activePageIndex - Math.floor(maxPagesToShow / 2)
-                      )
-                      let endIndex = Math.min(
-                        totalPages,
-                        startIndex + maxPagesToShow
-                      )
+                    // Calculate which pages to show (5 pages max)
+                    const maxPagesToShow = 5
+                    let startIndex = Math.max(
+                      0,
+                      activePageIndex - Math.floor(maxPagesToShow / 2)
+                    )
+                    let endIndex = Math.min(
+                      totalPages,
+                      startIndex + maxPagesToShow
+                    )
 
-                      // Adjust if we're near the end
-                      if (endIndex - startIndex < maxPagesToShow) {
-                        startIndex = Math.max(0, endIndex - maxPagesToShow)
-                      }
+                    // Adjust if we're near the end
+                    if (endIndex - startIndex < maxPagesToShow) {
+                      startIndex = Math.max(0, endIndex - maxPagesToShow)
+                    }
 
-                      const visiblePages = pageLinks.slice(startIndex, endIndex)
+                    const visiblePages = pageLinks.slice(startIndex, endIndex)
 
-                      return (
-                        <>
-                          {/* Previous button */}
-                          {prevLink && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                if (prevLink.url) {
-                                  try {
-                                    const u = new URL(prevLink.url)
-                                    const p = u.searchParams.get('page')
-                                    p && setPage(Number(p))
-                                  } catch (e) {}
-                                }
-                              }}
-                              disabled={!prevLink.url}
-                            >
-                              «
-                            </Button>
-                          )}
-
-                          {/* Page numbers */}
-                          {visiblePages.map((linkObj: any, idx: number) => {
-                            const { url, label: rawLabel, active } = linkObj
-                            const cleanedLabel = rawLabel.replace(/[^0-9]/g, '')
-
-                            let pageNum: number | null = null
-                            try {
-                              if (url) {
-                                const u = new URL(url)
-                                const p = u.searchParams.get('page')
-                                pageNum = p ? Number(p) : null
+                    return (
+                      <>
+                        {/* Previous button */}
+                        {prevLink && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (prevLink.url) {
+                                try {
+                                  const u = new URL(prevLink.url)
+                                  const p = u.searchParams.get('page')
+                                  p && setPage(Number(p))
+                                } catch (e) {}
                               }
-                            } catch (e) {
-                              pageNum = null
+                            }}
+                            disabled={!prevLink.url}
+                          >
+                            «
+                          </Button>
+                        )}
+
+                        {/* Page numbers */}
+                        {visiblePages.map((linkObj: any, idx: number) => {
+                          const { url, label: rawLabel, active } = linkObj
+                          const cleanedLabel = rawLabel.replace(/[^0-9]/g, '')
+
+                          let pageNum: number | null = null
+                          try {
+                            if (url) {
+                              const u = new URL(url)
+                              const p = u.searchParams.get('page')
+                              pageNum = p ? Number(p) : null
                             }
+                          } catch (e) {
+                            pageNum = null
+                          }
 
-                            return (
-                              <Button
-                                key={`page-${cleanedLabel}-${idx}`}
-                                variant={active ? 'default' : 'outline'}
-                                size="sm"
-                                onClick={() => pageNum && setPage(pageNum)}
-                                disabled={!url}
-                              >
-                                {cleanedLabel}
-                              </Button>
-                            )
-                          })}
-
-                          {/* Next button */}
-                          {nextLink && (
+                          return (
                             <Button
-                              variant="outline"
+                              key={`page-${cleanedLabel}-${idx}`}
+                              variant={active ? 'default' : 'outline'}
                               size="sm"
-                              onClick={() => {
-                                if (nextLink.url) {
-                                  try {
-                                    const u = new URL(nextLink.url)
-                                    const p = u.searchParams.get('page')
-                                    p && setPage(Number(p))
-                                  } catch (e) {}
-                                }
-                              }}
-                              disabled={!nextLink.url}
+                              onClick={() => pageNum && setPage(pageNum)}
+                              disabled={!url}
                             >
-                              »
+                              {cleanedLabel}
                             </Button>
-                          )}
-                        </>
-                      )
-                    })()}
-                  </div>
-                )}
+                          )
+                        })}
+
+                        {/* Next button */}
+                        {nextLink && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (nextLink.url) {
+                                try {
+                                  const u = new URL(nextLink.url)
+                                  const p = u.searchParams.get('page')
+                                  p && setPage(Number(p))
+                                } catch (e) {}
+                              }
+                            }}
+                            disabled={!nextLink.url}
+                          >
+                            »
+                          </Button>
+                        )}
+                      </>
+                    )
+                  })()}
+                </div>
               </>
             )}
           </div>
