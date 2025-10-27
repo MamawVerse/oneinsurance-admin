@@ -1,4 +1,6 @@
 import { useAuthStore } from '@/store/auth-store'
+import { AgentsResponse } from '@/types/agents'
+import { removeLocalStorage } from '@/utils/remove-session-storage'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
 
@@ -62,5 +64,42 @@ export function useUpdateAgent() {
 
       return response.data
     },
+  })
+}
+
+export function useSearchAgents() {
+  const { accessToken } = useAuthStore()
+  return useMutation({
+    mutationKey: ['search-agents'],
+    mutationFn: async ({ searchKey }: { searchKey: string }) => {
+      try {
+        const response = await axios.post<AgentsResponse>(
+          `${process.env.NEXT_PUBLIC_BASE_URL}/admin/agents/search`,
+          {
+            keyword: searchKey,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/json',
+            },
+          }
+        )
+
+        return response.data
+      } catch (error) {
+        if (axios.isAxiosError(error)) {
+          switch (error.response?.status) {
+            case 401:
+              alert('Session expired. Please log in again.')
+              removeLocalStorage('admin-auth-storage')
+              window.location.href = '/login'
+              break
+          }
+        }
+        throw error
+      }
+    },
+    retry: false,
   })
 }

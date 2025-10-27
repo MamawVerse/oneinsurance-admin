@@ -20,9 +20,10 @@ import {
   exportToCSV,
 } from '@/components/ui/data-table'
 import { ColumnDef } from '@tanstack/react-table'
-import { useGetAgents, useSearchAgents } from '@/app/data/queries/agents'
+import { useGetAgents } from '@/app/data/queries/agents'
+import { useSearchAgents } from '@/app/data/mutations/agents'
 import { useRouter } from 'next/navigation'
-import { Agent } from '@/types/agents'
+import { Agent, AgentsResponse } from '@/types/agents'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -61,12 +62,12 @@ export default function AgentsPage() {
   const [searchKey, setSearchKey] = useState('')
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<AgentsResponse | null>(
+    null
+  )
 
-  const {
-    data: searchResults,
-    isFetching: isSearching,
-    refetch: refetchSearch,
-  } = useSearchAgents(searchQuery)
+  const { mutateAsync: searchAgents, isPending: isSearching } =
+    useSearchAgents()
 
   useEffect(() => {
     // Small delay to let zustand persist/hydrate and avoid redirect flicker
@@ -361,12 +362,15 @@ export default function AgentsPage() {
     }
   }
 
-  function handleSearchButtonClick(): void {
+  async function handleSearchButtonClick(): Promise<void> {
     if (searchKey.trim() === '') {
       toast.info('Please enter the agent name to search.')
       return
     }
-    setSearchQuery(searchKey.trim())
+    const searchAgentsResult = await searchAgents({
+      searchKey: searchKey.trim(),
+    })
+    setSearchResults(searchAgentsResult)
     setIsSearchMode(true)
   }
 
